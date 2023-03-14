@@ -54,7 +54,7 @@ def return_jester(modality):
         prefix = '{:05d}.jpg'
         #root_data = '/data/vision/oliva/scratch/bzhou/video/jester/20bn-jester-v1'
         # root_data = '/mnt/localssd1/bzhou/jester/20bn-jester-v1'
-        root_data = '/d/TRN/data/jester-v1/jester-v1-raw'
+        root_data = '/d/TRN/Data/jester-v1-raw'
         filename_imglist_train = 'video_datasets/jester/train_videofolder.txt'
         filename_imglist_val = 'video_datasets/jester/val_videofolder.txt'
     elif modality == 'Flow':

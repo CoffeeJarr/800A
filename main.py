@@ -1,5 +1,6 @@
 import argparse
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 import time
 import shutil
 import torch
@@ -10,12 +11,15 @@ import torch.optim
 from torch.nn.utils import clip_grad_norm
 
 from dataset import TSNDataSet
+
 from models import TSN
 from transforms import *
 from opts import parser
 import datasets_video
 
 
+print(torch.cuda.current_device())
+torch.cuda._initialized = True
 best_prec1 = 0
 
 def main():
@@ -23,11 +27,12 @@ def main():
     args = parser.parse_args()
     check_rootfolders()
 
-    categories, args.train_list, args.val_list, args.root_path, prefix = datasets_video.return_dataset(args.dataset, args.modality)
+    categories, args.train_list, args.val_list, args.root_path, prefix = datasets_video.return_dataset(args.dataset,
+                                                                                                       args.modality)
     num_class = len(categories)
 
-
-    args.store_name = '_'.join(['TRN', args.dataset, args.modality, args.arch, args.consensus_type, 'segment%d'% args.num_segments])
+    args.store_name = '_'.join(
+        ['TRN', args.dataset, args.modality, args.arch, args.consensus_type, 'segment%d' % args.num_segments])
     print('storing name: ' + args.store_name)
 
     model = TSN(num_class, args.num_segments, args.modality,
@@ -54,7 +59,7 @@ def main():
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             print(("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.evaluate, checkpoint['epoch'])))
+                   .format(args.evaluate, checkpoint['epoch'])))
         else:
             print(("=> no checkpoint found at '{}'".format(args.resume)))
 
@@ -78,12 +83,12 @@ def main():
                    image_tmpl=prefix,
                    transform=torchvision.transforms.Compose([
                        train_augmentation,
-                       Stack(roll=(args.arch in ['BNInception','InceptionV3'])),
-                       ToTorchFormatTensor(div=(args.arch not in ['BNInception','InceptionV3'])),
+                       Stack(roll=(args.arch in ['BNInception', 'InceptionV3'])),
+                       ToTorchFormatTensor(div=(args.arch not in ['BNInception', 'InceptionV3'])),
                        normalize,
                    ])),
         batch_size=args.batch_size, shuffle=True,
-        num_workers=8, pin_memory=True)
+        num_workers=16, pin_memory=True)
 
     val_loader = torch.utils.data.DataLoader(
         TSNDataSet(args.root_path, args.val_list, num_segments=args.num_segments,
@@ -94,12 +99,12 @@ def main():
                    transform=torchvision.transforms.Compose([
                        GroupScale(int(scale_size)),
                        GroupCenterCrop(crop_size),
-                       Stack(roll=(args.arch in ['BNInception','InceptionV3'])),
-                       ToTorchFormatTensor(div=(args.arch not in ['BNInception','InceptionV3'])),
+                       Stack(roll=(args.arch in ['BNInception', 'InceptionV3'])),
+                       ToTorchFormatTensor(div=(args.arch not in ['BNInception', 'InceptionV3'])),
                        normalize,
                    ])),
         batch_size=args.batch_size, shuffle=False,
-        num_workers=8, pin_memory=True)
+        num_workers=16, pin_memory=True)
 
     # train_loader = torch.utils.data.DataLoader(
     #     TSNDataSet(args.root_path, args.train_list, num_segments=args.num_segments,
@@ -201,11 +206,10 @@ def train(train_loader, model, criterion, optimizer, epoch, log):
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1,5))
+        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
         losses.update(loss.data[0], input.size(0))
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
-
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -225,17 +229,16 @@ def train(train_loader, model, criterion, optimizer, epoch, log):
 
         if i % args.print_freq == 0:
             output = ('Epoch: [{0}][{1}/{2}], lr: {lr:.5f}\t'
-                    'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                    'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                    'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                    'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                        epoch, i, len(train_loader), batch_time=batch_time,
-                        data_time=data_time, loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr']))
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                epoch, i, len(train_loader), batch_time=batch_time,
+                data_time=data_time, loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr']))
             print(output)
             log.write(output + '\n')
             log.flush()
-
 
 
 def validate(val_loader, model, criterion, iter, log):
@@ -258,7 +261,7 @@ def validate(val_loader, model, criterion, iter, log):
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1,5))
+        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
 
         losses.update(loss.data[0], input.size(0))
         top1.update(prec1[0], input.size(0))
@@ -270,20 +273,20 @@ def validate(val_loader, model, criterion, iter, log):
 
         if i % args.print_freq == 0:
             output = ('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1, top5=top5))
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                i, len(val_loader), batch_time=batch_time, loss=losses,
+                top1=top1, top5=top5))
             print(output)
             log.write(output + '\n')
             log.flush()
 
     output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
-          .format(top1=top1, top5=top5, loss=losses))
+              .format(top1=top1, top5=top5, loss=losses))
     print(output)
-    output_best = '\nBest Prec@1: %.3f'%(best_prec1)
+    output_best = '\nBest Prec@1: %.3f' % (best_prec1)
     print(output_best)
     log.write(output + ' ' + output_best + '\n')
     log.flush()
@@ -294,10 +297,13 @@ def validate(val_loader, model, criterion, iter, log):
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, '%s/%s_checkpoint.pth.tar' % (args.root_model, args.store_name))
     if is_best:
-        shutil.copyfile('%s/%s_checkpoint.pth.tar' % (args.root_model, args.store_name),'%s/%s_best.pth.tar' % (args.root_model, args.store_name))
+        shutil.copyfile('%s/%s_checkpoint.pth.tar' % (args.root_model, args.store_name),
+                        '%s/%s_best.pth.tar' % (args.root_model, args.store_name))
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -338,6 +344,7 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
 
 def check_rootfolders():
     """Create log and model folder"""
